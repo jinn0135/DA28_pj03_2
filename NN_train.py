@@ -12,11 +12,13 @@ import matplotlib.pyplot as plt
 
 class train():
     def __init__(self, model, loss_fn, optimizer, trainloader, validloader, testloader, 
-                 scheduler, device, epochs=30, patience=5, batch_s=16, cnn=True, resize=784):
+                 scheduler, device, epochs=30, patience=5, batch_s=16, reg=False,
+                 cnn=True, resize=784):
         self.model, self.loss_fn, self.optimizer = model, loss_fn, optimizer
         self.trainloader, self.validloader, self.testloader = trainloader, validloader, testloader
         self.scheduler, self.device = scheduler, device
         self.epochs, self.patience, self.batch_s = epochs, patience, batch_s
+        self.reg = reg
         self.cnn, self.resize = cnn, resize
         self.train_loss_li, self.valid_loss_li, self.valid_acc_li = [], [], []
         
@@ -40,10 +42,13 @@ class train():
             self.model.eval() # 평가 모드
             valid_loss, valid_accuracy = self.evaluate(valid=True)
 
-            print('Epoch : {}/{}.......'.format(epoch+1, self.epochs),            
+            if not self.reg: print('Epoch : {}/{}.......'.format(epoch+1, self.epochs),            
                   'Train Loss : {:.3f}'.format(train_loss/len(self.trainloader)), 
                   'Valid Loss : {:.3f}'.format(valid_loss), 
                   'Valid Accuracy : {:.3f}'.format(valid_accuracy))
+            else: print('Epoch : {}/{}.......'.format(epoch+1, self.epochs),            
+                  'Train Loss : {:.3f}'.format(train_loss/len(self.trainloader)), 
+                  'Valid Loss : {:.3f}'.format(valid_loss))
             train_loss_li.append(train_loss/len(self.trainloader))
             valid_loss_li.append(valid_loss)
             valid_acc_li.append(valid_accuracy)
@@ -56,16 +61,16 @@ class train():
             else:
                 trigger = 0
                 min_loss = valid_loss # min_loss 갱신
-                best_model_state = deepcapy(self.model.state_dict())
+                best_model_state = deepcopy(self.model.state_dict())
                 torch.save(best_model_state, 'best_checkpoint.pth') # valid loss가 커지기 전의 모델 저장
 
-            scheduler.step(valid_loss) # learning rate scheduler
+            self.scheduler.step(valid_loss) # learning rate scheduler
         self.train_loss_li, self.valid_loss_li, self.valid_acc_li = train_loss_li, valid_loss_li, valid_acc_li
         return
 
     def result_plot(self):
         fig, ax = plt.subplots(1,2, figsize=(10,3))
-        x = np.arange(self.epochs)
+        x = np.arange(len(self.valid_acc_li))
         ax[0].plot(x, self.valid_acc_li, label='valid_accuracy')
         ax[0].set_title('valid accuracy')
         ax[1].plot(x, self.train_loss_li, label='train loss')
@@ -89,13 +94,13 @@ class train():
                 _, preds = torch.max(logit, 1)
                 loss += self.loss_fn(logit, labels).item()
                 accuracy += int((preds==labels).sum())
-        return loss/len(load), accuracy/(batch_s*len(load))
+        return loss/len(load), accuracy/(self.batch_s*len(load))
     
-    def check(self, unsq=True, rand_idx=10):
+    def check(self, unsq=True, rnd_idx=10):
         test_iter = iter(self.testloader)
         imgs, labels = next(test_iter)
         print(imgs.size(), labels.size())
-        print(imgs[rand_idx].shape, labels[rand_idx])
+        print(imgs[rnd_idx].shape, labels[rnd_idx])
         self.model.eval()
         with torch.no_grad():
             if unsq:
@@ -122,11 +127,6 @@ class train():
     def load_model(self, dirct, model):
         state_dict = torch.load(dirct)
         load_model = model
-        load_model.load_statee_dict(state_dict)
+        load_model.load_state_dict(state_dict)
         load_model.eval()
         self.evaluation(load_model, self.testloader, self.loss_fn)
-        
-        
-        
-        
-        

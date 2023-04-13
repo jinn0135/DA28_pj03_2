@@ -330,7 +330,6 @@ class VGG16_2(nn.Module):
         x = self.classifier(x)
         return x
     
-
 class ResNet50(nn.Module):
     def __init__(self):
         super().__init__()
